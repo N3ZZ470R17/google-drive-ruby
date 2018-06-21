@@ -604,7 +604,11 @@ module GoogleDrive
         end
       end
 
-      file_metadata = { name: title }
+      file_metadata = {
+        name: title,
+        writers_can_share: false,
+        viewers_can_copy_content: false
+      }
       content_type = api_params[:content_type]
       if params[:convert_mime_type]
         file_metadata[:mime_type] = params[:convert_mime_type]
