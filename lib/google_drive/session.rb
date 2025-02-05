@@ -137,7 +137,7 @@ module GoogleDrive
 
       config.scope ||= DEFAULT_SCOPE
 
-      if options[:client_id] && options[:client_secret] && options[:redirect_uri]
+      if options[:client_id] && options[:client_secret]
         config.client_id = options[:client_id]
         config.client_secret = options[:client_secret]
 	      config.redirect_uri = options[:client_redirect_uri]
@@ -150,6 +150,10 @@ module GoogleDrive
           'to provide a valid config. google_drive library no longer provides ' \
           'the default credential due to a limitation of Google API.'
         )
+      end
+
+      if options[:redirect_uri]
+        config.redirect_uri
       end
 
       if !config.redirect_uri
