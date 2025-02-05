@@ -140,7 +140,7 @@ module GoogleDrive
       if options[:client_id] && options[:client_secret] && options[:redirect_uri]
         config.client_id = options[:client_id]
         config.client_secret = options[:client_secret]
-	config.redirect_uri = options[:client_redirect_uri]
+	      config.redirect_uri = options[:client_redirect_uri]
       end
       if !config.client_id || !config.client_secret
         raise(
@@ -153,10 +153,10 @@ module GoogleDrive
       end
 
       if !config.redirect_uri
-	raise(
-		ArgumentError,
-		'redirect_uri is mandatory for this config.'
-	)
+        raise(
+          ArgumentError,
+          'redirect_uri is mandatory for this config.'
+        )
       end
 
       credentials = Google::Auth::UserRefreshCredentials.new(
