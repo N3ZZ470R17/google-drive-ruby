@@ -16,6 +16,10 @@ module GoogleDrive
   # create_spreadsheet in GoogleDrive::Session to get GoogleDrive::Spreadsheet
   # object.
   class Spreadsheet < GoogleDrive::File
+    
+    # TODO: Bump up the major version before switching the existing methods to
+    # v4 API because it requires to turn on a new API in the API console.
+
     include(Util)
 
     SUPPORTED_EXPORT_FORMAT = Set.new(%w[xlsx csv pdf])
@@ -24,7 +28,7 @@ module GoogleDrive
     def key
       id
     end
-
+    
     # URL of worksheet-based feed of the spreadsheet.
     def worksheets_feed_url
       format(
@@ -45,16 +49,8 @@ module GoogleDrive
 
     # Returns worksheets of the spreadsheet as array of GoogleDrive::Worksheet.
     def worksheets
-      doc = @session.request(:get, worksheets_feed_url)
-      if doc.root.name != 'feed'
-        raise(GoogleDrive::Error,
-              format(
-                "%s doesn't look like a worksheets feed URL because its root " \
-                'is not <feed>.',
-                worksheets_feed_url
-              ))
-      end
-      doc.css('entry').map { |e| Worksheet.new(@session, self, e) }.freeze
+      api_spreadsheet = @session.sheets_service.get_spreadsheet(id, fields: 'sheets.properties')
+      api_spreadsheet.sheets.map{ |s| Worksheet.new(@session, self, s.properties) }
     end
 
     # Returns a GoogleDrive::Worksheet with the given title in the spreadsheet.
@@ -68,24 +64,32 @@ module GoogleDrive
     # Returns a GoogleDrive::Worksheet with the given gid.
     #
     # Returns nil if not found.
-    def worksheet_by_gid(gid)
-      gid = gid.to_s
-      worksheets.find { |ws| ws.gid == gid }
+    def worksheet_by_sheet_id(sheet_id)
+      sheet_id = sheet_id.to_i
+      worksheets.find { |ws| ws.sheet_id == sheet_id }
     end
+
+    alias worksheet_by_gid worksheet_by_sheet_id
 
     # Adds a new worksheet to the spreadsheet. Returns added
     # GoogleDrive::Worksheet.
-    def add_worksheet(title, max_rows = 100, max_cols = 20)
-      xml = <<-"EOS"
-            <entry xmlns='http://www.w3.org/2005/Atom'
-                   xmlns:gs='http://schemas.google.com/spreadsheets/2006'>
-              <title>#{h(title)}</title>
-              <gs:rowCount>#{h(max_rows)}</gs:rowCount>
-              <gs:colCount>#{h(max_cols)}</gs:colCount>
-            </entry>
-          EOS
-      doc = @session.request(:post, worksheets_feed_url, data: xml)
-      Worksheet.new(@session, self, doc.root)
+    #
+    # When +index+ is specified, the worksheet is inserted at the given
+    # +index+.
+    def add_worksheet(title, max_rows = 100, max_cols = 20, index: nil)
+      (response,) = batch_update([{
+        add_sheet: {
+          properties: {
+            title: title,
+            index: index,
+            grid_properties: {
+              row_count: max_rows,
+              column_count: max_cols,
+            },
+          },
+        },
+      }])
+      Worksheet.new(@session, self, response.add_sheet.properties)
     end
 
     # Not available for GoogleDrive::Spreadsheet. Use export_as_file instead.
@@ -113,6 +117,19 @@ module GoogleDrive
         'download_to_io is not available for GoogleDrive::Spreadsheet. ' \
         'Use export_to_io instead.'
       )
+    end
+
+    # Performs batch update of the spreadsheet.
+    #
+    # +requests+ is an Array of Google::Apis::SheetsV4::Request or its Hash
+    # equivalent. Returns an Array of Google::Apis::SheetsV4::Response.
+    def batch_update(requests)
+      batch_request =
+        Google::Apis::SheetsV4::BatchUpdateSpreadsheetRequest.new(
+          requests: requests)
+      batch_response =
+        @session.sheets_service.batch_update_spreadsheet(id, batch_request)
+      batch_response.replies
     end
   end
 end

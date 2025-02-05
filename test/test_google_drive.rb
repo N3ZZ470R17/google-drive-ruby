@@ -8,9 +8,6 @@ require 'test/unit'
 
 require 'google_drive'
 
-ENV['SSL_CERT_FILE'] =
-  Gem.loaded_specs['google-api-client'].full_gem_path + '/lib/cacerts.pem'
-
 class TestGoogleDrive < Test::Unit::TestCase
   # Random string is added to avoid conflict with existing file titles.
   PREFIX = 'google-drive-ruby-test-4101301e303c-'.freeze
@@ -228,6 +225,9 @@ class TestGoogleDrive < Test::Unit::TestCase
     )
     assert { collection3.files.empty? }
 
+    collection4 = session.collection_by_id(collection.id)
+    assert { collection4.files.empty? }
+
     # Uploads a test file.
     test_file_path = File.join(File.dirname(__FILE__), 'test_file.txt')
     file = session.upload_from_file(
@@ -338,7 +338,7 @@ class TestGoogleDrive < Test::Unit::TestCase
     file.acl.push(scope_type: 'anyone', with_key: true, role: 'reader')
     acl = file.acl(reload: true).sort_by { |e| e.scope_type }
     assert { acl.size == 2 }
-    
+
     assert { acl[0].scope_type == 'anyone' }
     assert { acl[0].with_key }
     assert { acl[0].role == 'reader' }
@@ -394,7 +394,11 @@ class TestGoogleDrive < Test::Unit::TestCase
         )
       end
 
-      @@session = GoogleDrive::Session.from_config(config_path)
+      @@session = GoogleDrive::Session.from_config(
+        config_path,
+        client_options: {transparent_gzip_decompression: true},
+        request_options: {retries: 3}
+      )
     end
     @@session
   end

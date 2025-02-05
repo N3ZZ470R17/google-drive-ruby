@@ -50,13 +50,19 @@ module GoogleDrive
     # See
     # https://github.com/gimite/google-drive-ruby/blob/master/doc/authorization.md
     # for a usage example.
-    def self.from_credentials(credentials)
-      Session.new(credentials)
+    #
+    # See from_config documentation for an explanation of client_options and
+    # request_options.
+    def self.from_credentials(credentials, client_options = nil, request_options = nil)
+      Session.new(credentials, nil, client_options, request_options)
     end
 
     # Constructs a GoogleDrive::Session object from OAuth2 access token string.
-    def self.from_access_token(access_token)
-      Session.new(access_token)
+    #
+    # See from_config documentation for an explanation of client_options and
+    # request_options.
+    def self.from_access_token(access_token, client_options = nil, request_options = nil)
+      Session.new(access_token, nil, client_options, request_options)
     end
 
     # Constructs a GoogleDrive::Session object from a service account key JSON.
@@ -67,23 +73,28 @@ module GoogleDrive
     # See
     # https://github.com/gimite/google-drive-ruby/blob/master/doc/authorization.md
     # for a usage example.
+    #
+    # As with from_config, you can configure Google API client behavior with
+    # +client_options+ and +request_options+. Unlike in from_config, these
+    # are passed as positional arguments.
     def self.from_service_account_key(
-        json_key_path_or_io, scope = DEFAULT_SCOPE
+        json_key_path_or_io, scope = DEFAULT_SCOPE, client_options = nil,
+        request_options = nil
     )
       if json_key_path_or_io.is_a?(String)
         open(json_key_path_or_io) do |f|
-          from_service_account_key(f, scope)
+          from_service_account_key(f, scope, client_options, request_options)
         end
       else
         credentials = Google::Auth::ServiceAccountCredentials.make_creds(
           json_key_io: json_key_path_or_io, scope: scope
         )
-        Session.new(credentials)
+        Session.new(credentials, nil, client_options, request_options)
       end
     end
 
     # Returns GoogleDrive::Session constructed from a config JSON file at
-    # +config+.
+    # +config+, potenially modified with +options+.
     #
     # +config+ is the path to the config file.
     #
@@ -102,13 +113,24 @@ module GoogleDrive
     #   scope
     #   scope=
     #   save
+    #
+    # +options+ is a hash which may contain the following keys:
+    #   client_secret: if present, this will overwrite config.client_secret
+    #   client_id: if present, this will overwrite config.client_id
+    #   client_options: a hash or ::Google::Apis::ClientOptions. See
+    #     https://www.rubydoc.info/github/google/google-api-ruby-client/Google/Apis/ClientOptions
+    #     for an explanation of legal sub-fields.
+    #   request_options: a hash or ::Google::Apis::RequestOptions. See
+    #     https://www.rubydoc.info/github/google/google-api-ruby-client/Google/Apis/RequestOptions
+    #     for an explanation of legal sub-fields.
     def self.from_config(config, options = {})
       if config.is_a?(String)
         config_path = config
         config = Config.new(config_path)
         if config.type == 'service_account'
           return from_service_account_key(
-            config_path, options[:scope] || DEFAULT_SCOPE
+            config_path, options[:scope] || DEFAULT_SCOPE, options[:client_options],
+            options[:request_options]
           )
         end
       end
@@ -119,15 +141,13 @@ module GoogleDrive
         config.client_id = options[:client_id]
         config.client_secret = options[:client_secret]
       end
-      if !config.client_id && !config.client_secret
-        config.client_id =
-          '452925651630-egr1f18o96acjjvphpbbd1qlsevkho1d.' \
-          'apps.googleusercontent.com'
-        config.client_secret = '1U3-Krii5x1oLPrwD5zgn-ry'
-      elsif !config.client_id || !config.client_secret
+      if !config.client_id || !config.client_secret
         raise(
           ArgumentError,
-          'client_id and client_secret must be both specified or both omitted'
+          'client_id or client_secret is missing in the config. Follow ' \
+          'https://github.com/gimite/google-drive-ruby/blob/master/doc/authorization.md ' \
+          'to provide a valid config. google_drive library no longer provides ' \
+          'the default credential due to a limitation of Google API.'
         )
       end
 
@@ -153,10 +173,15 @@ module GoogleDrive
 
       config.save
 
-      Session.new(credentials)
+      Session.new(
+        credentials, nil, options[:client_options], options[:request_options]
+      )
     end
 
-    def initialize(credentials_or_access_token, proxy = nil)
+    def initialize(
+        credentials_or_access_token, proxy = nil, client_options = nil,
+        request_options = nil
+    )
       if proxy
         raise(
           ArgumentError,
@@ -179,7 +204,9 @@ module GoogleDrive
         else
           credentials = credentials_or_access_token
         end
-        @fetcher = ApiClientFetcher.new(credentials)
+        @fetcher = ApiClientFetcher.new(
+          credentials, client_options, request_options
+        )
       else
         @fetcher = nil
       end
@@ -190,8 +217,15 @@ module GoogleDrive
     attr_accessor :on_auth_fail
 
     # Returns an instance of Google::Apis::DriveV3::DriveService.
-    def drive
+    def drive_service
       @fetcher.drive
+    end
+
+    alias drive drive_service
+
+    # Returns an instance of Google::Apis::SheetsV4::SheetsService.
+    def sheets_service
+      @fetcher.sheets
     end
 
     # Returns list of files for the user as array of GoogleDrive::File or its
@@ -218,8 +252,8 @@ module GoogleDrive
     def files(params = {}, &block)
       params = convert_params(params)
       execute_paged!(
-        method: drive.method(:list_files),
-        parameters: { fields: '*', supports_team_drives: true }.merge(params),
+        method: drive_service.method(:list_files),
+        parameters: { fields: '*', supports_all_drives: true, include_items_from_all_drives: true }.merge(params),
         items_method_name: :files,
         converter: proc { |af| wrap_api_file(af) },
         &block
@@ -251,7 +285,7 @@ module GoogleDrive
     # Returns an instance of GoogleDrive::File or its subclass
     # (GoogleDrive::Spreadsheet, GoogleDrive::Collection).
     def file_by_id(id)
-      api_file = drive.get_file(id, fields: '*', supports_team_drives: true)
+      api_file = drive_service.get_file(id, fields: '*', supports_all_drives: true)
       wrap_api_file(api_file)
     end
 
@@ -350,13 +384,12 @@ module GoogleDrive
     #     "1smypkyAz4STrKO4Zkos5Z4UPUJKvvgIza32LnlQ7OGw/od7/private/full")
     def worksheet_by_url(url)
       case url
-      when %r{^https?://spreadsheets.google.com/feeds/worksheets/.*/.*/full/.*$}
-        worksheet_feed_url = url
-      when %r{^https?://spreadsheets.google.com/feeds/cells/(.*)/(.*)/private/full((\?.*)?)$}
-        worksheet_feed_url =
-          'https://spreadsheets.google.com/feeds/worksheets/' \
-          "#{Regexp.last_match(1)}/private/full/" \
-          "#{Regexp.last_match(2)}#{Regexp.last_match(3)}"
+      when %r{^https?://spreadsheets.google.com/feeds/worksheets/(.*)/.*/full/(.*)$}
+        spreadsheet_id = Regexp.last_match(1)
+        worksheet_feed_id = Regexp.last_match(2)
+      when %r{^https?://spreadsheets.google.com/feeds/cells/(.*)/(.*)/private/full(\?.*)?$}
+        spreadsheet_id = Regexp.last_match(1)
+        worksheet_feed_id = Regexp.last_match(2)
       else
         raise(
           GoogleDrive::Error,
@@ -365,8 +398,15 @@ module GoogleDrive
         )
       end
 
-      worksheet_feed_entry = request(:get, worksheet_feed_url)
-      Worksheet.new(self, nil, worksheet_feed_entry)
+      spreadsheet = spreadsheet_by_key(spreadsheet_id)
+      worksheet = spreadsheet.worksheets.find{ |ws| ws.worksheet_feed_id == worksheet_feed_id }
+      unless worksheet
+        raise(
+          GoogleDrive::Error,
+          "Worksheet not found for the given URL: #{url}"
+        )
+      end
+      worksheet
     end
 
     # Returns the root folder.
@@ -418,6 +458,24 @@ module GoogleDrive
 
     alias folder_by_url collection_by_url
 
+    # Returns GoogleDrive::Collection with given +id+.
+    #
+    # e.g.
+    #   # https://drive.google.com/drive/folders/1rPPuzAew4tO3ORc88Vz1JscPCcnrX7-J
+    #   session.collection_by_id("1rPPuzAew4tO3ORc88Vz1JscPCcnrX7-J")
+    def collection_by_id(id)
+      file = file_by_id(id)
+      unless file.is_a?(Collection)
+        raise(
+          GoogleDrive::Error,
+          format('The file with the ID is not a folder: %s', id)
+        )
+      end
+      file
+    end
+
+    alias folder_by_id collection_by_id
+
     # Creates a top-level folder with given title. Returns GoogleDrive::Collection
     # object.
     def create_collection(title, file_properties = {})
@@ -449,8 +507,8 @@ module GoogleDrive
         name: title,
       }.merge(file_properties)
 
-      file = drive.create_file(
-        file_metadata, fields: '*', supports_team_drives: true
+      file = drive_service.create_file(
+        file_metadata, fields: '*', supports_all_drives: true
       )
 
       wrap_api_file(file)
@@ -540,7 +598,7 @@ module GoogleDrive
         end
 
       elsif opts[:parameters] && opts[:parameters].key?(:page_token)
-        response = opts[:method].call(opts[:parameters])
+        response = opts[:method].call(**opts[:parameters])
         items    = response.__send__(opts[:items_method_name]).map do |item|
           opts[:converter] ? opts[:converter].call(item) : item
         end
@@ -596,7 +654,7 @@ module GoogleDrive
         upload_source: source,
         content_type: 'application/octet-stream',
         fields: '*',
-        supports_team_drives: true
+        supports_all_drives: true
       }
       for k, v in params
         unless %i[convert convert_mime_type parents].include?(k)
@@ -618,7 +676,7 @@ module GoogleDrive
       end
       file_metadata[:parents] = params[:parents] if params[:parents]
 
-      file = drive.create_file(file_metadata, api_params)
+      file = drive_service.create_file(file_metadata, **api_params)
       wrap_api_file(file)
     end
 
