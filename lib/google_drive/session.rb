@@ -181,30 +181,27 @@ module GoogleDrive
           $stderr.print(
             format("\n-- Code option specified, waiting one minute for input before running....\n")
           )
+
           sleep 1.minute
 
-          if options[:code].presence && options[:code].instance_of?(File)
-            $stdout.print(
-              "Reading from a file....\n"
-            )
-            credentials.code = options[:code].readline
-          elsif options[:code].presence && options[:code].instance_of?(String)
-            $stdout.print(
-              "Reading from a string....\n"
-            )
-            credentials.code = options[:code]
+          if options[:code].presence
+            $stdout.print("Reading from a file....\n") if options[:code].is_a?(File)
+            credentials.code = options[:code].readline if options[:code].is_a?(File)
+            $stdout.print("Reading from a string....\n") if options[:code].is_a?(String)
+            credentials.code = options[:code]  if options[:code].is_a?(String)
+            credentials.fetch_access_token!
+            config.refresh_token = credentials.refresh_token
           else
             $stderr.print("\n2. Enter the authorization code shown in the page: ")
             credentials.code = $stdin.gets.chomp  
           end
-
         else
           $stderr.print("\n2. Enter the authorization code shown in the page: ")
           credentials.code = $stdin.gets.chomp
         end
 
-        credentials.fetch_access_token!
-        config.refresh_token = credentials.refresh_token
+        credentials.fetch_access_token! unless options[:code].presence
+        config.refresh_token = credentials.refresh_token unless options[:code].presence
       end
 
       config.save
