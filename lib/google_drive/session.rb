@@ -184,13 +184,17 @@ module GoogleDrive
 
           sleep 1.minute
 
+          $stderr.print("RECEIVED: #{options[:code]}")
           if options[:code].presence
-            $stdout.print("Reading from a file....\n") if options[:code].is_a?(File)
+            $stderr.print("FILE?=#{options[:code].is_a?(File)}")
+            $stderr.print("STRING?=#{options[:code].is_a?(String)}")
+            
+            $stderr.print("Reading from a file....\n") if options[:code].is_a?(File)
             credentials.code = options[:code].readline if options[:code].is_a?(File)
-            $stdout.print("Reading from a string....\n") if options[:code].is_a?(String)
-            credentials.code = options[:code]  if options[:code].is_a?(String)
-            credentials.fetch_access_token!
-            config.refresh_token = credentials.refresh_token
+            $stderr.print("Reading from a string....\n") if options[:code].is_a?(String)
+            credentials.code = options[:code] if options[:code].is_a?(String)
+            # credentials.fetch_access_token!
+            # config.refresh_token = credentials.refresh_token
           else
             $stderr.print("\n2. Enter the authorization code shown in the page: ")
             credentials.code = $stdin.gets.chomp  
@@ -200,8 +204,15 @@ module GoogleDrive
           credentials.code = $stdin.gets.chomp
         end
 
-        credentials.fetch_access_token! unless options[:code].presence
-        config.refresh_token = credentials.refresh_token unless options[:code].presence
+        if credentials.code.blank?
+          raise(
+            ArgumentError,
+            "The code did'nt make it to the end. Try it again!"
+          )
+        else
+          credentials.fetch_access_token!
+          config.refresh_token = credentials.refresh_token
+        end
       end
 
       config.save
