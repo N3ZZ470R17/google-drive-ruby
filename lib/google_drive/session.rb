@@ -177,14 +177,17 @@ module GoogleDrive
         $stderr.print(
           format("\n1. Open this page:\n%s\n\n", credentials.authorization_uri)
         )
-        if options[:code]
+        if options[:code] && (options[:refresh_token].nil? || options[:refresh_token].empty?)
           $stderr.print(
-            format("\n-- Code option specified, waiting one minute for input before failing....")
+            format("\n-- Code option specified, waiting one minute for input before running....")
           )
           sleep 1.minute
-          return unless options[:code].presence
-
-          credentials.code = options[:code]
+          if options[:code].presence
+            credentials.code = options[:code]
+          else
+            $stderr.print('2. Enter the authorization code shown in the page: ')
+            credentials.code = $stdin.gets.chomp  
+          end
         else
           $stderr.print('2. Enter the authorization code shown in the page: ')
           credentials.code = $stdin.gets.chomp
