@@ -186,9 +186,9 @@ module GoogleDrive
 
           $stderr.print("RECEIVED: #{options[:code]}")
           if options[:code].presence
-            $stderr.print("FILE?=#{options[:code].is_a?(File)}")
-            $stderr.print("STRING?=#{options[:code].is_a?(String)}")
-            
+            $stderr.print("FILE?=#{options[:code].is_a?(File)}\n")
+            $stderr.print("STRING?=#{options[:code].is_a?(String)}\n")
+            $stderr.print("METHODS=#{options[:code].methods}\n")
             $stderr.print("Reading from a file....\n") if options[:code].is_a?(File)
             credentials.code = options[:code].readline if options[:code].is_a?(File)
             $stderr.print("Reading from a string....\n") if options[:code].is_a?(String)
@@ -207,7 +207,7 @@ module GoogleDrive
         if credentials.code.blank?
           raise(
             ArgumentError,
-            "The code did'nt make it to the end. Try it again!"
+            "The code didn't make it to the end. Try it again!"
           )
         else
           credentials.fetch_access_token!
