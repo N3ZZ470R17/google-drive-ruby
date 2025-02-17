@@ -179,8 +179,11 @@ module GoogleDrive
         )
         if options[:code]
           $stderr.print(
-            format("\n-- Capturing code....")
+            format("\n-- Code option specified, waiting one minute for input before failing....")
           )
+          sleep 1.minute
+          return unless options[:code].presence
+
           credentials.code = options[:code]
         else
           $stderr.print('2. Enter the authorization code shown in the page: ')
