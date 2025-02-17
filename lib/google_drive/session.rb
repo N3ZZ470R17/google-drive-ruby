@@ -182,14 +182,18 @@ module GoogleDrive
             format("\n-- Code option specified, waiting one minute for input before running....")
           )
           sleep 1.minute
-          if options[:code].presence
+
+          if options[:code].presence && options[:code].instance_of? ::File
+            credentials.code = File.open(options[:code]).readline
+          elsif options[:code].presence && options[:code].instance_of? ::String
             credentials.code = options[:code]
           else
             $stderr.print('2. Enter the authorization code shown in the page: ')
             credentials.code = $stdin.gets.chomp  
           end
+          
         else
-          $stderr.print('2. Enter the authorization code shown in the page: ')
+          $stderr.print("\n2. Enter the authorization code shown in the page: ")
           credentials.code = $stdin.gets.chomp
         end
 
