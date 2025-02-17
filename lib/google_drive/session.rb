@@ -177,8 +177,16 @@ module GoogleDrive
         $stderr.print(
           format("\n1. Open this page:\n%s\n\n", credentials.authorization_uri)
         )
-        $stderr.print('2. Enter the authorization code shown in the page: ')
-        credentials.code = $stdin.gets.chomp
+        if options[:code]
+          $stderr.print(
+            format("\n-- Capturing code....")
+          )
+          credentials.code = options[:code]
+        else
+          $stderr.print('2. Enter the authorization code shown in the page: ')
+          credentials.code = $stdin.gets.chomp
+        end
+
         credentials.fetch_access_token!
         config.refresh_token = credentials.refresh_token
       end
@@ -188,6 +196,12 @@ module GoogleDrive
       Session.new(
         credentials, nil, options[:client_options], options[:request_options]
       )
+    end
+
+    def capture_code(input)
+      return unless input.presence
+
+
     end
 
     def initialize(
