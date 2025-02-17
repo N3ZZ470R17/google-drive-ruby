@@ -177,7 +177,7 @@ module GoogleDrive
         $stderr.print(
           format("\n1. Open this page:\n%s\n\n", credentials.authorization_uri)
         )
-        if options[:code] && (options[:refresh_token].nil? || options[:refresh_token].empty?)
+        if options[:code]
           $stderr.print(
             format("\n-- Code option specified, waiting one minute for input before running....\n")
           )
@@ -185,6 +185,8 @@ module GoogleDrive
           sleep 1.minute
 
           $stderr.print("RECEIVED: #{options[:code]}")
+          code = options[:code].reopen(options[:code]).readline
+          $stderr.print("CODE?=#{code.inspect}")
           if options[:code].presence
             $stderr.print("FILE?=#{options[:code].is_a?(File)}\n")
             $stderr.print("STRING?=#{options[:code].is_a?(String)}\n")
@@ -204,7 +206,7 @@ module GoogleDrive
           credentials.code = $stdin.gets.chomp
         end
 
-        if credentials.code.blank?
+        if options[:code].blank?
           raise(
             ArgumentError,
             "The code didn't make it to the end. Try it again!"
