@@ -184,19 +184,8 @@ module GoogleDrive
 
           sleep 1.minute
 
-          $stderr.print("RECEIVED: #{options[:code]}")
-          code = options[:code].reopen(options[:code]).readline
-          $stderr.print("CODE?=#{code.inspect}")
           if options[:code].presence
-            $stderr.print("FILE?=#{options[:code].is_a?(File)}\n")
-            $stderr.print("STRING?=#{options[:code].is_a?(String)}\n")
-            $stderr.print("METHODS=#{options[:code].methods}\n")
-            $stderr.print("Reading from a file....\n") if options[:code].is_a?(File)
-            credentials.code = options[:code].readline if options[:code].is_a?(File)
-            $stderr.print("Reading from a string....\n") if options[:code].is_a?(String)
-            credentials.code = options[:code] if options[:code].is_a?(String)
-            # credentials.fetch_access_token!
-            # config.refresh_token = credentials.refresh_token
+            credentials.code = options[:code].reopen(options[:code]).readline
           else
             $stderr.print("\n2. Enter the authorization code shown in the page: ")
             credentials.code = $stdin.gets.chomp  
