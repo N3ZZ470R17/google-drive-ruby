@@ -163,6 +163,10 @@ module GoogleDrive
         )
       end
 
+      if options[:code]
+        config.code
+      end
+
       credentials = Google::Auth::UserRefreshCredentials.new(
         client_id: config.client_id,
         client_secret: config.client_secret,
@@ -179,16 +183,22 @@ module GoogleDrive
         )
         if options[:code]
           $stderr.print(
-            format("\n-- Code option specified, waiting one minute for input before running....\n")
+            format("\n-- Code option specified, waiting ninety seconds for input before running....\n")
           )
 
-          sleep 1.minute
+          sleep 90.seconds
+          config.code = options[:code].reopen(options[:code]).readline
 
           if options[:code].presence
             credentials.code = options[:code].reopen(options[:code]).readline
           else
             $stderr.print("\n2. Enter the authorization code shown in the page: ")
-            credentials.code = $stdin.gets.chomp  
+            begin
+              credentials.code = $stdin.gets.chomp  
+            rescue NoMethodError => e
+              $stderr.print("\nError: #{e.message}")
+              credentials.code = config.code
+            end
           end
         else
           $stderr.print("\n2. Enter the authorization code shown in the page: ")
