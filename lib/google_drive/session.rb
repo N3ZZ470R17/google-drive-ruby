@@ -163,10 +163,6 @@ module GoogleDrive
         )
       end
 
-      if options[:code]
-        config.code
-      end
-
       credentials = Google::Auth::UserRefreshCredentials.new(
         client_id: config.client_id,
         client_secret: config.client_secret,
@@ -187,7 +183,6 @@ module GoogleDrive
           )
 
           sleep 90.seconds
-          config.code = options[:code].reopen(options[:code]).readline
 
           if options[:code].presence
             credentials.code = options[:code].reopen(options[:code]).readline
@@ -197,7 +192,7 @@ module GoogleDrive
               credentials.code = $stdin.gets.chomp  
             rescue NoMethodError => e
               $stderr.print("\nError: #{e.message}")
-              credentials.code = config.code
+              credentials.code = options[:code].reopen(options[:code]).readline
             end
           end
         else
@@ -205,7 +200,7 @@ module GoogleDrive
           credentials.code = $stdin.gets.chomp
         end
 
-        if options[:code].blank?
+        if options[:code].blank? || options[:code].nil? || options[:code].empty?
           raise(
             ArgumentError,
             "The code didn't make it to the end. Try it again!"
