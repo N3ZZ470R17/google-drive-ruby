@@ -200,7 +200,7 @@ module GoogleDrive
           credentials.code = $stdin.gets.chomp
         end
 
-        if options[:code].blank? || options[:code].nil? || options[:code].empty?
+        if options[:code].blank?
           raise(
             ArgumentError,
             "The code didn't make it to the end. Try it again!"
