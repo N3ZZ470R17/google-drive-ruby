@@ -187,11 +187,12 @@ module GoogleDrive
           if options[:code].presence
             credentials.code = options[:code].reopen(options[:code]).readline
           else
-            $stderr.print("\n2. Enter the authorization code shown in the page: ")
             begin
+              $stderr.print("\n2. Enter the authorization code shown in the page: ")
               credentials.code = $stdin.gets.chomp  
             rescue NoMethodError => e
               $stderr.print("\nError: #{e.message}")
+              $stderr.print("\nReading from the code option again....")
               credentials.code = options[:code].reopen(options[:code]).readline
             end
           end
@@ -200,15 +201,8 @@ module GoogleDrive
           credentials.code = $stdin.gets.chomp
         end
 
-        if options[:code].blank?
-          raise(
-            ArgumentError,
-            "The code didn't make it to the end. Try it again!"
-          )
-        else
-          credentials.fetch_access_token!
-          config.refresh_token = credentials.refresh_token
-        end
+        credentials.fetch_access_token!
+        config.refresh_token = credentials.refresh_token
       end
 
       config.save
@@ -216,12 +210,6 @@ module GoogleDrive
       Session.new(
         credentials, nil, options[:client_options], options[:request_options]
       )
-    end
-
-    def capture_code(input)
-      return unless input.presence
-
-
     end
 
     def initialize(
