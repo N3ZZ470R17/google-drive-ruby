@@ -156,18 +156,18 @@ module GoogleDrive
         config.redirect_uri
       end
 
-      if !config.redirect_uri
-        raise(
-          ArgumentError,
-          'redirect_uri is mandatory for this config.'
-        )
-      end
+      # if !config.redirect_uri
+      #   raise(
+      #     ArgumentError,
+      #     'redirect_uri is mandatory for this config.'
+      #   )
+      # end
 
       credentials = Google::Auth::UserRefreshCredentials.new(
         client_id: config.client_id,
         client_secret: config.client_secret,
         scope: config.scope,
-        redirect_uri: config.redirect_uri
+        redirect_uri: config.redirect_uri.present? ? config.redirect_uri : 'urn:ietf:wg:oauth:2.0:oob' 
       )
 
       if config.refresh_token
